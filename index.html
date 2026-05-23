@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Fantasy RPG Talent Tree</title>
+    <style>
+        /* Base Theme & Reset */
+        :root {
+            --bg-color: #0d0b09;
+            --gold: #d4af37;
+            --gold-glow: rgba(212, 175, 55, 0.8);
+            --silver: #c0c0c0;
+            --amber: #ff8c00;
+            --amber-glow: rgba(255, 140, 0, 0.9);
+            --panel-bg: rgba(20, 15, 10, 0.9);
+            --text-main: #f0e6d2;
+            --text-sub: #a09582;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at center, rgba(30, 25, 20, 0.8) 0%, var(--bg-color) 100%),
+                url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 3h1v1H1V3zm2-2h1v1H3V1z' fill='%23ffffff' fill-opacity='0.02' fill-rule='evenodd'/%3E%3C/svg%3E");
+            font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+            color: var(--text-main);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Container & Canvas */
+        #tree-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #lines-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Nodes Base */
+        .node {
+            position: absolute;
+            z-index: 2;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s ease, opacity 0.3s ease, filter 0.3s ease;
+        }
+
+        /* Square Domain Nodes */
+        .square-node {
+            width: 130px;
+            height: 130px;
+            background: linear-gradient(135deg, rgba(30, 25, 20, 0.95), rgba(10, 8, 5, 0.95));
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+        }
+
+        .square-node:hover {
+            transform: translate(-50%, -50%) scale(1.05);
+            z-index: 4;
+        }
+
+        .square-node.mastered {
+            border: 2px solid var(--gold);
+            box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.3), 0 0 15px rgba(212, 175, 55, 0.4);
+        }
+
+        .square-node.in-progress {
+            border: 2px solid var(--silver);
+            animation: pulse-amber 2.5s infinite alternate;
+        }
+
+        .square-node.dimmed {
+            opacity: 0.3;
+            filter: grayscale(80%);
+        }
+
+        .node-title {
+            font-size: 17px;
+            font-weight: bold;
+            color: var(--gold);
+            margin-bottom: 6px;
+            text-shadow: 1px 1px 2px black;
+            letter-spacing: 0.5px;
+        }
+
+        .node-divider {
+            width: 80%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.6), transparent);
+            margin: 4px 0;
+        }
+
+        .node-sub {
+            font-size: 12px;
+            color: var(--text-sub);
+            line-height: 1.3;
+        }
+
+        /* Round Class Nodes Base */
+        .round-node {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: radial-gradient(circle at center, #2a2218 0%, #0a0806 100%);
+            border: 2px solid #555;
+            color: #888;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 0, 0, 0.9);
+            
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(0.5);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 3;
+        }
+
+        .round-node:hover {
+            transform: translate(-50%, -50%) scale(1.15) !important;
+            z-index: 5;
+            background: radial-gradient(circle at center, #3a2e1d 0%, #1a140b 100%);
+        }
+
+        /* Round Node Specific States (Inactive is Default) */
+        .round-node.mastered {
+            border-color: #8a7032;
+            color: var(--gold);
+        }
+
+        .round-node.in-progress {
+            border-color: #888;
+            color: #ccc;
+        }
+
+        .round-node.inactive {
+            border-color: #555;
+            color: #888;
+        }
+
+        /* Active Display States (When Node is Clicked) */
+        .round-node.mastered.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+            border-color: var(--gold);
+            box-shadow: inset 0 0 15px rgba(212, 175, 55, 0.6), 0 0 20px var(--gold-glow);
+            animation: float-node 3s ease-in-out infinite;
+        }
+
+        .round-node.in-progress.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+            border-color: var(--silver);
+            box-shadow: inset 0 0 15px rgba(255, 140, 0, 0.4), 0 0 25px rgba(255, 140, 0, 0.8);
+            animation: float-node 3s ease-in-out infinite, pulse-amber 2.5s infinite alternate;
+        }
+
+        .round-node.inactive.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+            border-color: #a0a0a0; /* Weathered silver */
+            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.1), 0 0 10px rgba(0, 0, 0, 0.9);
+            animation: float-node 3s ease-in-out infinite;
+        }
+
+        /* RPG Tooltip */
+        #tooltip {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 320px;
+            background: linear-gradient(180deg, rgba(25, 20, 15, 0.95) 0%, rgba(10, 8, 5, 0.98) 100%);
+            border: 1px solid #5a4a30;
+            border-radius: 4px;
+            padding: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.9), inset 0 0 10px rgba(80, 60, 30, 0.3);
+            pointer-events: none;
+            opacity: 0;
+            z-index: 1000;
+            transition: opacity 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #tooltip::before {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px; right: 2px; bottom: 2px;
+            border: 1px solid rgba(212, 175, 55, 0.15);
+            pointer-events: none;
+        }
+
+        #tt-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--gold);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+            padding-bottom: 5px;
+        }
+
+        #tt-meta {
+            font-size: 12px;
+            color: var(--text-sub);
+            font-style: italic;
+        }
+
+        #tt-desc {
+            font-size: 13px;
+            color: #dcd0b8;
+            line-height: 1.5;
+        }
+
+        /* Animations */
+        @keyframes pulse-amber {
+            0% { box-shadow: inset 0 0 10px rgba(255, 140, 0, 0.1), 0 0 10px rgba(255, 140, 0, 0.2); }
+            100% { box-shadow: inset 0 0 20px rgba(255, 140, 0, 0.4), 0 0 25px rgba(255, 140, 0, 0.6); }
+        }
+
+        @keyframes float-node {
+            0%, 100% { margin-top: 0; }
+            50% { margin-top: -6px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="tree-container">
+        <canvas id="lines-canvas"></canvas>
+        <!-- Nodes injected via JS -->
+    </div>
+
+    <div id="tooltip">
+        <div id="tt-title"></div>
+        <div id="tt-meta"></div>
+        <div id="tt-desc"></div>
+    </div>
+
+    <script>
+        // --- 1. Data Definitions ---
+
+        const baseNodes = [
+            // Tier 1 (Top)
+            { id: 'finance', title: 'Finance', sub: 'CPA Australia', status: 'mastered', x: 20, y: 15 },
+            { id: 'business', title: 'Business', sub: 'Cross-Industry Exp', status: 'mastered', x: 50, y: 15 },
+            { id: 'governance', title: 'Governance', sub: 'CGI Member', status: 'mastered', x: 80, y: 15 },
+            // Tier 2 (Middle)
+            { id: 'devops', title: 'Technology', sub: 'DevOps', hasDivider: true, status: 'mastered', x: 50, y: 50 },
+            // Tier 3 (Bottom)
+            { id: 'data', title: 'Data', sub: 'PL-300 Certified', status: 'mastered', x: 20, y: 85 },
+            { id: 'cloud', title: 'Cloud', sub: 'AZ-900 Certified', status: 'mastered', x: 50, y: 85 },
+            { id: 'ai', title: 'AI', sub: 'AWS / GCP Prep', status: 'in-progress', x: 80, y: 85 }
+        ];
+
+        // Status mapping to style visual pathways properly
+        const combos = [
+            // A) Horizontal Tier 1
+            { id: 'c1', n1: 'business', n2: 'finance', acronym: 'BP', status: 'inactive', title: 'Business Partner', desc: 'Strategic advisor driving revenue growth by bridging financial planning with market operations.', curve: 3 },
+            { id: 'c2', n1: 'business', n2: 'governance', acronym: 'ESG', status: 'mastered', title: 'ESG Specialist', desc: 'Corporate sustainability architect ensuring business expansion complies with environmental and social governance standards.', curve: -3 },
+
+            // B) Middle Transition
+            { id: 'c3', n1: 'business', n2: 'devops', acronym: 'VSA', status: 'mastered', title: 'Value Stream Architect', desc: 'Optimizes end-to-end product delivery flows to align IT output with core enterprise value.', curve: 0 },
+            { id: 'c4', n1: 'finance', n2: 'devops', acronym: 'ITFM', status: 'mastered', title: 'ITFM Specialist', desc: 'IT Financial Management expert balancing cloud budgets, software licenses, and engineering cost centers.', curve: 2 },
+            { id: 'c5', n1: 'governance', n2: 'devops', acronym: 'ITGF', status: 'inactive', title: 'IT Governance Frameworkist', desc: 'Ensures automated deployment pipelines adhere to rigorous compliance matrices like COBIT and ITIL.', curve: -2 },
+
+            // C) Vertical Baseline
+            { id: 'c6', n1: 'devops', n2: 'data', acronym: 'DOS', status: 'mastered', title: 'DataOps Specialist', desc: 'Mastered: Microsoft DP-600. Upcoming Challenge: DP-700. Builds automated pipeline models for continuous data engineering.', curve: -2 },
+            { id: 'c7', n1: 'devops', n2: 'cloud', acronym: 'CPE', status: 'mastered', title: 'CloudOps / Platform Engineer', desc: 'Maintains high-availability infrastructure using GitOps, ArgoCD, and automated cloud provisioning.', curve: 0 },
+            { id: 'c8', n1: 'devops', n2: 'ai', acronym: 'MGE', status: 'in-progress', title: 'MLOps / GenAIOps Engineer', desc: 'AI-300 Candidate. Specializes in operationalising large language models and managing neural network training loops.', curve: 2 },
+
+            // D) Direct Strategic to Baseline
+            { id: 'c9', n1: 'business', n2: 'data', acronym: 'BDA', status: 'in-progress', title: 'Business Data Analyst', desc: 'Translates complex database metrics into actionable strategic business initiatives.', curve: 7 },
+            { id: 'c10', n1: 'finance', n2: 'data', acronym: 'FDA', status: 'in-progress', title: 'Financial Data Analyst', desc: 'Builds advanced statistical models for quantitative trading and market forecasting.', curve: 5 },
+            
+            // DGO lowered slightly (+15) to sit neatly between the Business and Technology nodes
+            { id: 'c11', n1: 'governance', n2: 'data', acronym: 'DGO', status: 'inactive', title: 'Data Governance Officer', desc: 'Secures data assets and implements enterprise-level privacy policies.', curve: 15 }, 
+            
+            // FCP arched perfectly outward (+15) to route cleanly between the left Data node and center Technology node
+            { id: 'c13', n1: 'finance', n2: 'cloud', acronym: 'FCP', status: 'mastered', title: 'FinOps Certified Practitioner', desc: 'Mastered 🎉: Specializes in cloud financial management and cost optimization strategies.', curve: 15 }, 
+            
+            // CGE arched perfectly outward (-15) to route cleanly between the right AI node and center Technology node
+            { id: 'c14', n1: 'governance', n2: 'cloud', acronym: 'CGE', status: 'inactive', title: 'Cloud Governance Expert', desc: 'Configures automated cloud guardrails to meet international data compliance laws.', curve: -15 }, 
+            
+            { id: 'c15', n1: 'business', n2: 'ai', acronym: 'APM', status: 'inactive', title: 'AI Product Manager', desc: 'Bridges the gap between data science capabilities and consumer product roadmaps.', curve: -7 }, 
+            
+            // AFS lowered slightly (-15) mirroring DGO, passing just past the middle
+            { id: 'c16', n1: 'finance', n2: 'ai', acronym: 'AFS', status: 'in-progress', title: 'AI FinOps Specialist', desc: 'Learning ⏳: Controls and optimizes compute costs related to massive AI/LLM models.', curve: -15 }, 
+            
+            { id: 'c17', n1: 'governance', n2: 'ai', acronym: 'AGE', status: 'inactive', title: 'AI Governance & Ethics Specialist', desc: 'Establishes transparency frameworks and compliance guardrails for generative AI models.', curve: -5 }
+        ];
+
+        // --- 2. Initialization & DOM Generation ---
+
+        const container = document.getElementById('tree-container');
+        const canvas = document.getElementById('lines-canvas');
+        const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('tooltip');
+        
+        let activeSquareId = null;
+        let layoutCache = {};
+
+        function initDOM() {
+            // Generate Squares
+            baseNodes.forEach(node => {
+                const el = document.createElement('div');
+                el.className = `node square-node ${node.status}`;
+                el.id = `node-${node.id}`;
+                el.dataset.id = node.id;
+                el.dataset.title = node.title;
+                el.dataset.meta = `Status: ${node.status === 'mastered' ? 'Mastered' : 'In Progress'}`;
+                el.dataset.desc = `Core domain focusing on ${node.title} architecture and principles.`;
+                
+                const dividerHtml = node.hasDivider ? '<div class="node-divider"></div>' : '';
+
+                el.innerHTML = `
+                    <div class="node-title">${node.title}</div>
+                    ${dividerHtml}
+                    <div class="node-sub">${node.sub}</div>
+                `;
+                container.appendChild(el);
+            });
+
+            // Generate Rounds
+            combos.forEach(combo => {
+                const el = document.createElement('div');
+                el.className = `node round-node ${combo.status}`;
+                el.id = `combo-${combo.id}`;
+                el.dataset.n1 = combo.n1;
+                el.dataset.n2 = combo.n2;
+                el.dataset.title = combo.title;
+                el.dataset.meta = `Status: ${combo.status.toUpperCase().replace('-', ' ')} | Synergy Node`;
+                el.dataset.desc = combo.desc;
+                
+                el.innerText = combo.acronym;
+                container.appendChild(el);
+            });
+        }
+
+        // --- 3. Layout & Canvas Math ---
+
+        function updateLayout() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const vw = window.innerWidth / 100;
+            const vh = window.innerHeight / 100;
+
+            // Update square positions
+            baseNodes.forEach(node => {
+                const el = document.getElementById(`node-${node.id}`);
+                const px = node.x * vw;
+                const py = node.y * vh;
+                el.style.left = `${px}px`;
+                el.style.top = `${py}px`;
+                layoutCache[node.id] = { x: px, y: py };
+            });
+
+            // Calculate bezier paths
+            combos.forEach(combo => {
+                const p1 = layoutCache[combo.n1];
+                const p2 = layoutCache[combo.n2];
+                
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                const midX = (p1.x + p2.x) / 2;
+                const midY = (p1.y + p2.y) / 2;
+
+                const nx = -dy / dist;
+                const ny = dx / dist;
+
+                const curvePx = combo.curve * vw; 
+                const cx = midX + nx * curvePx;
+                const cy = midY + ny * curvePx;
+
+                const nodeX = 0.25 * p1.x + 0.5 * cx + 0.25 * p2.x;
+                const nodeY = 0.25 * p1.y + 0.5 * cy + 0.25 * p2.y;
+
+                combo.pathData = { p1, p2, cx, cy, nodeX, nodeY };
+
+                const roundEl = document.getElementById(`combo-${combo.id}`);
+                roundEl.style.left = `${nodeX}px`;
+                roundEl.style.top = `${nodeY}px`;
+            });
+
+            drawCanvas();
+        }
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw base state lines (faint)
+            combos.forEach(combo => {
+                const { p1, p2, cx, cy } = combo.pathData;
+                const isActive = activeSquareId && (combo.n1 === activeSquareId || combo.n2 === activeSquareId);
+                
+                if (!activeSquareId) {
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.quadraticCurveTo(cx, cy, p2.x, p2.y);
+                    ctx.strokeStyle = 'rgba(200, 180, 150, 0.08)';
+                    ctx.lineWidth = 2;
+                    ctx.shadowBlur = 0;
+                    ctx.stroke();
+                } else if (isActive) {
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.quadraticCurveTo(cx, cy, p2.x, p2.y);
+                    
+                    if (combo.status === 'mastered') {
+                        // Gold Glow
+                        ctx.strokeStyle = 'rgba(212, 175, 55, 0.6)';
+                        ctx.lineWidth = 6;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = 'rgba(212, 175, 55, 0.8)';
+                        ctx.stroke();
+                        // Inner Core
+                        ctx.strokeStyle = '#ffd700';
+                        ctx.lineWidth = 2;
+                        ctx.shadowBlur = 0;
+                        ctx.stroke();
+                    } else if (combo.status === 'in-progress') {
+                        // Amber Glow
+                        ctx.strokeStyle = 'rgba(255, 140, 0, 0.8)';
+                        ctx.lineWidth = 6;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#ff8c00';
+                        ctx.stroke();
+                        // Inner Core
+                        ctx.strokeStyle = '#c0c0c0'; // Silver line for in-progress
+                        ctx.lineWidth = 2;
+                        ctx.shadowBlur = 0;
+                        ctx.stroke();
+                    } else if (combo.status === 'inactive') {
+                        // Weathered Silver, No Glow
+                        ctx.strokeStyle = 'rgba(150, 150, 150, 0.2)';
+                        ctx.lineWidth = 4;
+                        ctx.shadowBlur = 0;
+                        ctx.stroke();
+                        // Inner Core
+                        ctx.strokeStyle = '#888888';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                }
+            });
+        }
+
+        // --- 4. Interactions ---
+
+        function handleSquareClick(e) {
+            const nodeEl = e.target.closest('.square-node');
+            
+            if (!nodeEl && !e.target.closest('.round-node')) {
+                activeSquareId = null;
+                updateDOMStates();
+                drawCanvas();
+                return;
+            }
+
+            if (nodeEl) {
+                const clickedId = nodeEl.dataset.id;
+                activeSquareId = activeSquareId === clickedId ? null : clickedId;
+                updateDOMStates();
+                drawCanvas();
+            }
+        }
+
+        function updateDOMStates() {
+            const squares = document.querySelectorAll('.square-node');
+            const rounds = document.querySelectorAll('.round-node');
+
+            if (!activeSquareId) {
+                squares.forEach(s => s.classList.remove('dimmed'));
+                rounds.forEach(r => r.classList.remove('active'));
+                return;
+            }
+
+            const connectedSet = new Set([activeSquareId]);
+            combos.forEach(c => {
+                if (c.n1 === activeSquareId) connectedSet.add(c.n2);
+                if (c.n2 === activeSquareId) connectedSet.add(c.n1);
+            });
+
+            squares.forEach(s => {
+                if (connectedSet.has(s.dataset.id)) {
+                    s.classList.remove('dimmed');
+                } else {
+                    s.classList.add('dimmed');
+                }
+            });
+
+            rounds.forEach(r => {
+                if (r.dataset.n1 === activeSquareId || r.dataset.n2 === activeSquareId) {
+                    r.classList.add('active');
+                } else {
+                    r.classList.remove('active');
+                }
+            });
+        }
+
+        function handleHover(e) {
+            const nodeEl = e.target.closest('.node');
+            
+            if (nodeEl) {
+                document.getElementById('tt-title').innerText = nodeEl.dataset.title;
+                document.getElementById('tt-meta').innerText = nodeEl.dataset.meta;
+                document.getElementById('tt-desc').innerText = nodeEl.dataset.desc;
+
+                let ttX = e.clientX + 20;
+                let ttY = e.clientY + 20;
+
+                const ttWidth = 320; 
+                const ttHeight = tooltip.offsetHeight || 150;
+
+                if (ttX + ttWidth > window.innerWidth) ttX = e.clientX - ttWidth - 20;
+                if (ttY + ttHeight > window.innerHeight) ttY = window.innerHeight - ttHeight - 10;
+
+                tooltip.style.left = `${ttX}px`;
+                tooltip.style.top = `${ttY}px`;
+                tooltip.style.opacity = '1';
+            } else {
+                tooltip.style.opacity = '0';
+            }
+        }
+
+        // --- 5. Event Listeners ---
+        window.addEventListener('resize', updateLayout);
+        window.addEventListener('click', handleSquareClick);
+        window.addEventListener('mousemove', handleHover);
+
+        // Boot
+        initDOM();
+        updateLayout();
+
+    </script>
+</body>
+</html>
